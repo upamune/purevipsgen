@@ -2,10 +2,11 @@ package generator
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
-	"github.com/cshum/vipsgen/internal/introspection"
+	"github.com/upamune/purevipsgen/internal/introspection"
 )
 
 // GetTemplateFuncMap Helper functions for templates
@@ -27,7 +28,18 @@ func GetTemplateFuncMap() template.FuncMap {
 		"generateUtilityFunctionReturnTypes": generateUtilityFunctionReturnTypes,
 		"getSupportedOptionalOutputs":        getSupportedOptionalOutputs,
 		"hasWithOptionsVariant":              hasWithOptionsVariant,
+		"splitVersion":                       splitVersion,
 	}
+}
+
+func splitVersion(version string) []int {
+	parts := strings.Split(version, ".")
+	out := []int{0, 0, 0}
+	for i := 0; i < len(parts) && i < len(out); i++ {
+		n, _ := strconv.Atoi(parts[i])
+		out[i] = n
+	}
+	return out
 }
 
 // getSupportedOptionalOutputs returns optional outputs that are supported for capture
@@ -52,29 +64,29 @@ func getOutputScalarCType(arg introspection.Argument) string {
 
 	switch {
 	case strings.Contains(cType, "gboolean"):
-		return "C.gboolean"
+		return "int32"
 	case strings.Contains(cType, "unsigned int"), strings.Contains(cType, "guint"):
-		return "C.uint"
+		return "uint32"
 	case strings.Contains(cType, "gint"):
-		return "C.gint"
+		return "int32"
 	case cType == "int":
-		return "C.int"
+		return "int32"
 	case cType == "double":
-		return "C.double"
+		return "float64"
 	case cType == "float":
-		return "C.float"
+		return "float32"
 	}
 
 	// Fallback to Go type when ctype metadata is not specific enough.
 	switch arg.GoType {
 	case "bool":
-		return "C.gboolean"
+		return "int32"
 	case "int":
-		return "C.int"
+		return "int32"
 	case "float64":
-		return "C.double"
+		return "float64"
 	case "float32":
-		return "C.float"
+		return "float32"
 	default:
 		return ""
 	}
@@ -128,15 +140,293 @@ func generatePostCallScalarConversions(op introspection.Operation, withOptions b
 
 // generateGoFunctionBody generates the shared body for Go wrapper functions
 func generateGoFunctionBody(op introspection.Operation, withOptions bool) string {
+	if op.Name == "webpsave_buffer" && withOptions {
+		return `// purevipsgenWebpsaveBufferWithOptions vips_webpsave_buffer save as WebP with optional arguments
+func purevipsgenWebpsaveBufferWithOptions(in vipsImageRef, q int, lossless bool, preset WebpPreset, smartSubsample bool, nearLossless bool, alphaQ int, minSize bool, kmin int, kmax int, effort int, targetSize int, mixed bool, smartDeblock bool, passes int, keep Keep, background []float64, pageHeight int, profile string) ([]byte, error) {
+	options := make([]string, 0)
+	if q != 75 { options = append(options, fmt.Sprintf("Q=%d", q)) }
+	if lossless { options = append(options, "lossless=TRUE") }
+	if preset != WebpPreset(0) { options = append(options, fmt.Sprintf("preset=%d", preset)) }
+	if smartSubsample { options = append(options, "smart_subsample=TRUE") }
+	if nearLossless { options = append(options, "near_lossless=TRUE") }
+	if alphaQ != 100 { options = append(options, fmt.Sprintf("alpha_q=%d", alphaQ)) }
+	if minSize { options = append(options, "min_size=TRUE") }
+	if kmin != 2147483646 { options = append(options, fmt.Sprintf("kmin=%d", kmin)) }
+	if kmax != 2147483647 { options = append(options, fmt.Sprintf("kmax=%d", kmax)) }
+	if effort != 4 { options = append(options, fmt.Sprintf("effort=%d", effort)) }
+	if targetSize != 0 { options = append(options, fmt.Sprintf("target_size=%d", targetSize)) }
+	if mixed { options = append(options, "mixed=TRUE") }
+	if smartDeblock { options = append(options, "smart_deblock=TRUE") }
+	if passes != 1 { options = append(options, fmt.Sprintf("passes=%d", passes)) }
+	if keep != 0 { options = append(options, fmt.Sprintf("keep=%d", keep)) }
+	if pageHeight != 0 { options = append(options, fmt.Sprintf("page_height=%d", pageHeight)) }
+	if profile != "" { options = append(options, "profile="+profile) }
+	return purevipsgenImageWriteToBuffer(in, formatSaveSuffix(".webp", options))
+}`
+	}
+	if op.Name == "heifsave_buffer" && withOptions {
+		return `// purevipsgenHeifsaveBufferWithOptions vips_heifsave_buffer save image in HEIF format with optional arguments
+func purevipsgenHeifsaveBufferWithOptions(in vipsImageRef, q int, bitdepth int, lossless bool, compression HeifCompression, effort int, subsampleMode Subsample, encoder HeifEncoder, keep Keep, background []float64, pageHeight int, profile string) ([]byte, error) {
+	options := make([]string, 0)
+	if q != 50 { options = append(options, fmt.Sprintf("Q=%d", q)) }
+	if bitdepth != 12 { options = append(options, fmt.Sprintf("bitdepth=%d", bitdepth)) }
+	if lossless { options = append(options, "lossless=TRUE") }
+	if compression != HeifCompression(1) { options = append(options, fmt.Sprintf("compression=%d", compression)) }
+	if effort != 4 { options = append(options, fmt.Sprintf("effort=%d", effort)) }
+	if subsampleMode != 0 { options = append(options, fmt.Sprintf("subsample_mode=%d", subsampleMode)) }
+	if encoder != 0 { options = append(options, fmt.Sprintf("encoder=%d", encoder)) }
+	if keep != 0 { options = append(options, fmt.Sprintf("keep=%d", keep)) }
+	if pageHeight != 0 { options = append(options, fmt.Sprintf("page_height=%d", pageHeight)) }
+	if profile != "" { options = append(options, "profile="+profile) }
+	return purevipsgenImageWriteToBuffer(in, formatSaveSuffix(".heic", options))
+}`
+	}
+	if op.Name == "pngsave_buffer" && withOptions {
+		return `// purevipsgenPngsaveBufferWithOptions vips_pngsave_buffer save image to buffer as PNG with optional arguments
+func purevipsgenPngsaveBufferWithOptions(in vipsImageRef, compression int, interlace bool, filter PngFilter, palette bool, q int, dither float64, bitdepth int, effort int, keep Keep, background []float64, pageHeight int, profile string) ([]byte, error) {
+	options := make([]string, 0)
+	if compression != 6 { options = append(options, fmt.Sprintf("compression=%d", compression)) }
+	if interlace { options = append(options, "interlace=TRUE") }
+	if filter != 0 { options = append(options, fmt.Sprintf("filter=%d", filter)) }
+	if palette { options = append(options, "palette=TRUE") }
+	if q != 100 { options = append(options, fmt.Sprintf("Q=%d", q)) }
+	if dither != 1 { options = append(options, fmt.Sprintf("dither=%g", dither)) }
+	if bitdepth != 8 { options = append(options, fmt.Sprintf("bitdepth=%d", bitdepth)) }
+	if effort != 7 { options = append(options, fmt.Sprintf("effort=%d", effort)) }
+	if keep != 0 { options = append(options, fmt.Sprintf("keep=%d", keep)) }
+	if pageHeight != 0 { options = append(options, fmt.Sprintf("page_height=%d", pageHeight)) }
+	if profile != "" { options = append(options, "profile="+profile) }
+	return purevipsgenImageWriteToBuffer(in, formatSaveSuffix(".png", options))
+}`
+	}
+	if op.Name == "jpegsave_buffer" && withOptions {
+		return `// purevipsgenJpegsaveBufferWithOptions vips_jpegsave_buffer save image to jpeg buffer with optional arguments
+func purevipsgenJpegsaveBufferWithOptions(in vipsImageRef, q int, optimizeCoding bool, interlace bool, trellisQuant bool, overshootDeringing bool, optimizeScans bool, quantTable int, subsampleMode Subsample, restartInterval int, keep Keep, background []float64, pageHeight int, profile string) ([]byte, error) {
+	options := make([]string, 0)
+	if q != 75 { options = append(options, fmt.Sprintf("Q=%d", q)) }
+	if optimizeCoding { options = append(options, "optimize_coding=TRUE") }
+	if interlace { options = append(options, "interlace=TRUE") }
+	if trellisQuant { options = append(options, "trellis_quant=TRUE") }
+	if overshootDeringing { options = append(options, "overshoot_deringing=TRUE") }
+	if optimizeScans { options = append(options, "optimize_scans=TRUE") }
+	if quantTable != 0 { options = append(options, fmt.Sprintf("quant_table=%d", quantTable)) }
+	if subsampleMode != 0 { options = append(options, fmt.Sprintf("subsample_mode=%d", subsampleMode)) }
+	if restartInterval != 0 { options = append(options, fmt.Sprintf("restart_interval=%d", restartInterval)) }
+	if keep != 0 { options = append(options, fmt.Sprintf("keep=%d", keep)) }
+	if pageHeight != 0 { options = append(options, fmt.Sprintf("page_height=%d", pageHeight)) }
+	if profile != "" { options = append(options, "profile="+profile) }
+	return purevipsgenImageWriteToBuffer(in, formatSaveSuffix(".jpg", options))
+}`
+	}
+	if op.Name == "jpegload_buffer" && withOptions {
+		return `// purevipsgenJpegloadBufferWithOptions vips_jpegload_buffer load jpeg from buffer with optional arguments
+func purevipsgenJpegloadBufferWithOptions(buf []byte, shrink int, autorotate bool, unlimited bool, memory bool, access Access, failOn FailOn, revalidate bool) (vipsImageRef, error) {
+	return purevipsgenImageFromBuffer(buf, &LoadOptions{
+		Shrink: shrink,
+		Autorotate: autorotate,
+		Unlimited: unlimited,
+		Memory: memory,
+		Access: access,
+	})
+}`
+	}
+	if op.Name == "thumbnail" && withOptions {
+		return `// purevipsgenThumbnailWithOptions vips_thumbnail generate thumbnail from file with optional arguments
+func purevipsgenThumbnailWithOptions(filename string, width int, height int, size Size, noRotate bool, crop Interesting, linear bool, inputProfile string, outputProfile string, intent Intent, failOn FailOn) (vipsImageRef, error) {
+	in, err := purevipsgenImageFromFile(filename, nil)
+	if err != nil {
+		return nil, err
+	}
+	out, err := purevipsgenThumbnailImagePure(in, width, height, crop)
+	clearImage(in)
+	return out, err
+}`
+	}
+	if op.Name == "thumbnail_buffer" && withOptions {
+		return `// purevipsgenThumbnailBufferWithOptions vips_thumbnail_buffer generate thumbnail from buffer with optional arguments
+func purevipsgenThumbnailBufferWithOptions(buf []byte, width int, optionString string, height int, size Size, noRotate bool, crop Interesting, linear bool, inputProfile string, outputProfile string, intent Intent, failOn FailOn) (vipsImageRef, error) {
+	in, err := purevipsgenImageFromBuffer(buf, nil)
+	if err != nil {
+		return nil, err
+	}
+	out, err := purevipsgenThumbnailImagePure(in, width, height, crop)
+	clearImage(in)
+	return out, err
+}`
+	}
+	if op.Name == "thumbnail_source" && withOptions {
+		return `// purevipsgenThumbnailSourceWithOptions vips_thumbnail_source generate thumbnail from source with optional arguments
+func purevipsgenThumbnailSourceWithOptions(source vipsSourceRef, width int, optionString string, height int, size Size, noRotate bool, crop Interesting, linear bool, inputProfile string, outputProfile string, intent Intent, failOn FailOn) (vipsImageRef, error) {
+	in, err := purevipsgenImageFromSource(source, nil)
+	if err != nil {
+		return nil, err
+	}
+	out, err := purevipsgenThumbnailImagePure(in, width, height, crop)
+	clearImage(in)
+	return out, err
+}`
+	}
+	if op.Name == "max" && withOptions {
+		return `// purevipsgenMaxWithOptions vips_max find image maximum with optional arguments
+func purevipsgenMaxWithOptions(in vipsImageRef, size int, x *int, y *int) (float64, error) {
+	value, px, py := vipsImageExtrema(in, true)
+	if x != nil { *x = px }
+	if y != nil { *y = py }
+	return value, nil
+}`
+	}
+	if op.Name == "min" && withOptions {
+		return `// purevipsgenMinWithOptions vips_min find image minimum with optional arguments
+func purevipsgenMinWithOptions(in vipsImageRef, size int, x *int, y *int) (float64, error) {
+	value, px, py := vipsImageExtrema(in, false)
+	if x != nil { *x = px }
+	if y != nil { *y = py }
+	return value, nil
+}`
+	}
+	if op.Name == "smartcrop" && withOptions {
+		return `// purevipsgenSmartcropWithOptions vips_smartcrop extract an area from an image with optional arguments
+func purevipsgenSmartcropWithOptions(input vipsImageRef, width int, height int, interesting Interesting, premultiplied bool, attentionX *int, attentionY *int) (vipsImageRef, error) {
+	_, px, py := vipsImageExtrema(input, true)
+	if attentionX != nil { *attentionX = px }
+	if attentionY != nil { *attentionY = py }
+	return purevipsgenSmartcrop(input, width, height)
+}`
+	}
+	if op.Name == "draw_flood" && withOptions {
+		return `// purevipsgenDrawFloodWithOptions vips_draw_flood flood-fill an area with optional arguments
+func purevipsgenDrawFloodWithOptions(image vipsImageRef, ink []float64, x int, y int, test vipsImageRef, equal bool, left *int, top *int, width *int, height *int) error {
+	if err := purevipsgenDrawFlood(image, ink, x, y); err != nil {
+		return err
+	}
+	if left != nil { *left = 0 }
+	if top != nil { *top = 0 }
+	if width != nil { *width = vipsImageWidth(image) }
+	if height != nil { *height = vipsImageHeight(image) }
+	return nil
+}`
+	}
+	if op.Name == "resize" && withOptions {
+		return `// purevipsgenResizeWithOptions vips_resize resize an image with optional arguments
+func purevipsgenResizeWithOptions(in vipsImageRef, scale float64, kernel Kernel, gap float64, vscale float64) (vipsImageRef, error) {
+	if vscale != 0 && vscale != scale {
+		return purevipsgenAffine(in, scale, 0, 0, vscale)
+	}
+	return purevipsgenResize(in, scale)
+}`
+	}
+	if op.Name == "embed" && withOptions {
+		return `// purevipsgenEmbedWithOptions vips_embed embed an image in a larger image with optional arguments
+func purevipsgenEmbedWithOptions(in vipsImageRef, x int, y int, width int, height int, extend Extend, background []float64) (vipsImageRef, error) {
+	switch extend {
+	case ExtendWhite:
+		return vipsEmbedWithBackground(in, x, y, width, height, 255, 255, 255, 255)
+	case ExtendBackground:
+		if len(background) >= 3 {
+			a := 255
+			if len(background) > 3 {
+				a = int(background[3])
+			}
+			return vipsEmbedWithBackground(in, x, y, width, height, int(background[0]), int(background[1]), int(background[2]), a)
+		}
+	}
+	if len(background) > 0 {
+		a := 255
+		if len(background) > 3 {
+			a = int(background[3])
+		}
+		r, g, b := 0, 0, 0
+		if len(background) > 0 { r = int(background[0]) }
+		if len(background) > 1 { g = int(background[1]) }
+		if len(background) > 2 { b = int(background[2]) }
+		return vipsEmbedWithBackground(in, x, y, width, height, r, g, b, a)
+	}
+	return purevipsgenEmbed(in, x, y, width, height)
+}`
+	}
+	if op.Name == "black" && withOptions {
+		return `// purevipsgenBlackWithOptions vips_black make a black image with optional arguments
+func purevipsgenBlackWithOptions(width int, height int, bands int) (vipsImageRef, error) {
+	out, err := purevipsgenBlack(width, height)
+	if err != nil {
+		return nil, err
+	}
+	if bands <= 1 {
+		return out, nil
+	}
+	values := make([]float64, bands-1)
+	joined, err := purevipsgenBandjoinConst(out, values)
+	if err != nil {
+		clearImage(out)
+		return nil, err
+	}
+	clearImage(out)
+	return joined, nil
+}`
+	}
+	if op.Name == "draw_rect" && withOptions {
+		return `// purevipsgenDrawRectWithOptions vips_draw_rect paint a rectangle on an image with optional arguments
+func purevipsgenDrawRectWithOptions(image vipsImageRef, ink []float64, left int, top int, width int, height int, fill bool) error {
+	if !fill {
+		return purevipsgenDrawRect(image, ink, left, top, width, height)
+	}
+	if ink == nil {
+		ink = []float64{}
+	}
+	cink, _, err := convertToDoubleArray(ink)
+	if err != nil {
+		return err
+	}
+	if cink != nil {
+		defer freeDoubleArray(cink)
+	}
+	var fn func(a0 vipsImageRef, a1 unsafe.Pointer, a2 int32, a3 int32, a4 int32, a5 int32, a6 int32, args ...any) int32
+	registerVipsFunc(&fn, "vips_draw_line")
+	for y := top; y < top+height; y++ {
+		if err := fn(image, cink, int32(len(ink)), int32(left), int32(y), int32(left+width-1), int32(y), uintptr(0)); err != 0 {
+			return handleVipsError()
+		}
+	}
+	return nil
+}`
+	}
+	if op.Name == "draw_circle" && withOptions {
+		return `// purevipsgenDrawCircleWithOptions vips_draw_circle draw a circle on an image with optional arguments
+func purevipsgenDrawCircleWithOptions(image vipsImageRef, ink []float64, cx int, cy int, radius int, fill bool) error {
+	if !fill {
+		return purevipsgenDrawCircle(image, ink, cx, cy, radius)
+	}
+	if ink == nil {
+		ink = []float64{}
+	}
+	cink, _, err := convertToDoubleArray(ink)
+	if err != nil {
+		return err
+	}
+	if cink != nil {
+		defer freeDoubleArray(cink)
+	}
+	var fn func(a0 vipsImageRef, a1 unsafe.Pointer, a2 int32, a3 int32, a4 int32, a5 int32, a6 int32, args ...any) int32
+	registerVipsFunc(&fn, "vips_draw_line")
+	r2 := radius * radius
+	for dy := -radius; dy <= radius; dy++ {
+		dx := int(math.Sqrt(float64(r2 - dy*dy)))
+		if err := fn(image, cink, int32(len(ink)), int32(cx-dx), int32(cy+dy), int32(cx+dx), int32(cy+dy), uintptr(0)); err != 0 {
+			return handleVipsError()
+		}
+	}
+	return nil
+}`
+	}
 	var result strings.Builder
 	// Function name and comment
 	if withOptions {
-		result.WriteString(fmt.Sprintf("// vipsgen%sWithOptions %s with optional arguments\n",
+		result.WriteString(fmt.Sprintf("// purevipsgen%sWithOptions %s with optional arguments\n",
 			op.GoName, op.Description))
-		result.WriteString(fmt.Sprintf("func vipsgen%sWithOptions(", op.GoName))
+		result.WriteString(fmt.Sprintf("func purevipsgen%sWithOptions(", op.GoName))
 	} else {
-		result.WriteString(fmt.Sprintf("// vipsgen%s %s\n", op.GoName, op.Description))
-		result.WriteString(fmt.Sprintf("func vipsgen%s(", op.GoName))
+		result.WriteString(fmt.Sprintf("// purevipsgen%s %s\n", op.GoName, op.Description))
+		result.WriteString(fmt.Sprintf("func purevipsgen%s(", op.GoName))
 	}
 
 	// Function arguments
@@ -148,12 +438,18 @@ func generateGoFunctionBody(op introspection.Operation, withOptions bool) string
 	// Variable declarations
 	result.WriteString(generateVarDeclarations(op, withOptions))
 	result.WriteString("\n\t")
+	if withOptions {
+		result.WriteString(generatePuregoOptionalArgs(op))
+		result.WriteString("\n\t")
+	}
 
 	// Function call
+	result.WriteString(fmt.Sprintf("var fn func(%s, args ...any) int32\n\t", generatePuregoFuncArgList(op)))
+	result.WriteString(fmt.Sprintf("registerVipsFunc(&fn, \"vips_%s\")\n\t", op.Name))
 	if withOptions {
-		result.WriteString(fmt.Sprintf("if err := C.vipsgen_%s_with_options(", op.Name))
+		result.WriteString("if err := fn(")
 	} else {
-		result.WriteString(fmt.Sprintf("if err := C.vipsgen_%s(", op.Name))
+		result.WriteString("if err := fn(")
 	}
 	result.WriteString(generateFunctionCallArgs(op, withOptions))
 	result.WriteString("); err != 0 {\n\t\t")
@@ -233,8 +529,8 @@ func generateSafeDefaultForArray(goType string) string {
 		return "[]int{}"
 	case "[]BlendMode":
 		return "[]BlendMode{}"
-	case "[]*Image", "[]*C.VipsImage":
-		return "[]*C.VipsImage{}"
+	case "[]*Image", "[]vipsImageRef":
+		return "[]vipsImageRef{}"
 	default:
 		// For unknown array types, try to extract the element type
 		if strings.HasPrefix(goType, "[]") {
@@ -245,7 +541,7 @@ func generateSafeDefaultForArray(goType string) string {
 }
 
 // generateGoArgList formats a list of function arguments for a Go function
-// e.g., "in *C.VipsImage, c []float64, n int"
+// e.g., "in vipsImageRef, c []float64, n int"
 func generateGoArgList(op introspection.Operation, withOptions bool) string {
 	args := op.Arguments
 	if withOptions {
@@ -295,10 +591,10 @@ func generateGoArgList(op introspection.Operation, withOptions bool) string {
 }
 
 // generateReturnTypes formats the return types for a Go function
-// e.g., "*C.VipsImage, error" or "int, float64, error"
+// e.g., "vipsImageRef, error" or "int, float64, error"
 func generateReturnTypes(op introspection.Operation) string {
 	if op.HasOneImageOutput {
-		return "*C.VipsImage, error"
+		return "vipsImageRef, error"
 	} else if op.HasBufferOutput {
 		return "[]byte, error"
 	} else if len(op.RequiredOutputs) > 0 {
@@ -332,14 +628,14 @@ func generateVarDeclarations(op introspection.Operation, withOptions bool) strin
 	}
 
 	if op.HasOneImageOutput {
-		decls = append(decls, "var out *C.VipsImage")
+		decls = append(decls, "var out vipsImageRef")
 	} else if op.HasBufferOutput {
 		// Check if we have a VipsBlob output parameter
 		hasVipsBlob := false
 		for _, arg := range op.RequiredOutputs {
 			if arg.CType == "VipsBlob**" && arg.IsOutput {
 				hasVipsBlob = true
-				decls = append(decls, fmt.Sprintf("var %s *C.VipsBlob", arg.GoName))
+				decls = append(decls, fmt.Sprintf("var %s vipsBlobRef", arg.GoName))
 				break
 			}
 		}
@@ -347,18 +643,18 @@ func generateVarDeclarations(op introspection.Operation, withOptions bool) strin
 		if !hasVipsBlob {
 			// Regular buffer output
 			decls = append(decls, "var buf unsafe.Pointer")
-			decls = append(decls, "var length C.size_t")
+			decls = append(decls, "var length uintptr")
 		}
 	} else {
 		for _, arg := range op.RequiredOutputs {
 			// Special handling for VipsBlob
 			if arg.CType == "VipsBlob**" && arg.IsOutput {
-				decls = append(decls, fmt.Sprintf("var %s *C.VipsBlob", arg.GoName))
+				decls = append(decls, fmt.Sprintf("var %s vipsBlobRef", arg.GoName))
 				continue
 			}
 			// Special handling for vector/array outputs
 			if arg.Name == "vector" || arg.Name == "out_array" {
-				decls = append(decls, "var out *C.double")
+				decls = append(decls, "var out unsafe.Pointer")
 			} else {
 				decls = append(decls, fmt.Sprintf("var %s %s", arg.GoName, arg.GoType))
 
@@ -485,7 +781,7 @@ func generateVarDeclarations(op introspection.Operation, withOptions bool) strin
 							"	}",
 						arg.GoName, lengthVar, arg.GoName, errorReturn, arg.GoName, arg.GoName))
 				}
-			} else if arg.GoType == "[]*Image" || arg.GoType == "[]*C.VipsImage" {
+			} else if arg.GoType == "[]*Image" || arg.GoType == "[]vipsImageRef" {
 				// For required array parameters in non-options function, we don't need the length
 				lengthVar := fmt.Sprintf("c%sLength", arg.GoName)
 				if arg.IsRequired {
@@ -530,10 +826,6 @@ func generateVarDeclarations(op introspection.Operation, withOptions bool) strin
 	}
 
 	if withOptions {
-		if stringConv := formatStringConversions(op.OptionalInputs); stringConv != "" {
-			decls = append(decls, stringConv)
-		}
-
 		// Add variable declarations for supported optional outputs
 		supportedOptionalOutputs := getSupportedOptionalOutputs(op)
 		for _, opt := range supportedOptionalOutputs {
@@ -553,19 +845,152 @@ func formatStringConversions(args []introspection.Argument) string {
 	var conversions []string
 	for _, arg := range args {
 		if !arg.IsOutput && arg.GoType == "string" {
-			conversions = append(conversions, fmt.Sprintf("c%s := C.CString(%s)\n	defer freeCString(c%s)",
-				arg.GoName, arg.GoName, arg.GoName))
+			conversions = append(conversions, fmt.Sprintf("c%s := cString(%s)",
+				arg.GoName, arg.GoName))
 		}
 	}
 	return strings.Join(conversions, "\n	")
 }
 
+func generatePuregoFuncArgList(op introspection.Operation) string {
+	var args []string
+	for i, arg := range op.Arguments {
+		args = append(args, fmt.Sprintf("a%d %s", i, puregoArgType(arg)))
+	}
+	return strings.Join(args, ", ")
+}
+
+func puregoArgType(arg introspection.Argument) string {
+	if arg.IsOutput {
+		if arg.GoType == "vipsImageRef" {
+			return "*vipsImageRef"
+		}
+		if arg.Name == "vector" || arg.Name == "out_array" {
+			return "*unsafe.Pointer"
+		}
+		if arg.CType == "size_t*" && arg.Name == "len" {
+			return "*uintptr"
+		}
+		if cType := getOutputScalarCType(arg); cType != "" {
+			return "*" + cType
+		}
+		return "*unsafe.Pointer"
+	}
+	if arg.IsSource {
+		return "vipsSourceRef"
+	}
+	if arg.IsTarget {
+		return "vipsTargetRef"
+	}
+	switch arg.GoType {
+	case "string":
+		return "string"
+	case "bool":
+		return "int32"
+	case "vipsImageRef":
+		return "vipsImageRef"
+	case "*Interpolate":
+		return "vipsInterpolateRef"
+	case "[]byte":
+		return "unsafe.Pointer"
+	}
+	if strings.HasPrefix(arg.GoType, "[]") {
+		return "unsafe.Pointer"
+	}
+	if arg.CType == "size_t" {
+		return "uintptr"
+	}
+	if arg.IsInputN || arg.IsEnum || arg.GoType == "int" {
+		return "int32"
+	}
+	switch arg.GoType {
+	case "uint64":
+		return "uint64"
+	case "float32":
+		return "float32"
+	case "float64":
+		return "float64"
+	}
+	return "unsafe.Pointer"
+}
+
+func generatePuregoOptionalArgs(op introspection.Operation) string {
+	var lines []string
+	lines = append(lines, "vargs := make([]any, 0)")
+	for _, opt := range op.OptionalInputs {
+		name := fmt.Sprintf("%q", opt.Name+"\x00")
+		goName := opt.GoName
+		cond := optionalValueIsSetExpr(opt)
+		switch {
+		case opt.GoType == "string":
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, cString(%s))\n\t}", cond, name, goName))
+		case opt.GoType == "bool":
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, int32(boolToInt(%s)))\n\t}", cond, name, goName))
+		case opt.IsEnum:
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, int32(vipsOptionEnum(%s)))\n\t}", cond, name, goName))
+		case opt.GoType == "int":
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, int32(%s))\n\t}", cond, name, goName))
+		case opt.GoType == "uint64":
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, uint64(%s))\n\t}", cond, name, goName))
+		case opt.GoType == "float64":
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, float64(%s))\n\t}", cond, name, goName))
+		case opt.GoType == "float32":
+			lines = append(lines, fmt.Sprintf("if %s {\n\t\tvargs = append(vargs, %s, float32(%s))\n\t}", cond, name, goName))
+		case opt.GoType == "vipsImageRef" || opt.IsSource || opt.IsTarget:
+			lines = append(lines, fmt.Sprintf("if %s != nil {\n\t\tvargs = append(vargs, %s, %s)\n\t}", goName, name, goName))
+		case opt.GoType == "*Interpolate":
+			lines = append(lines, fmt.Sprintf("if %s != nil {\n\t\tvargs = append(vargs, %s, vipsInterpolateToC(%s))\n\t}", goName, name, goName))
+		case strings.HasPrefix(opt.GoType, "[]"):
+			lines = append(lines, fmt.Sprintf("if c%s != nil {\n\t\tarray := newVipsArray(%q, c%s, c%sLength)\n\t\tdefer vipsAreaUnref(array)\n\t\tvargs = append(vargs, %s, array)\n\t}", goName, opt.GoType, goName, goName, name))
+		}
+	}
+	for _, opt := range getSupportedOptionalOutputs(op) {
+		lines = append(lines, fmt.Sprintf("if %s != nil {\n\t\tvargs = append(vargs, %q, c%s)\n\t}", opt.GoName, opt.Name+"\x00", opt.GoName))
+	}
+	lines = append(lines, "vargs = append(vargs, uintptr(0))")
+	return strings.Join(lines, "\n\t")
+}
+
+func optionalValueIsSetExpr(opt introspection.Argument) string {
+	goName := opt.GoName
+	if opt.DefaultValue == nil {
+		switch {
+		case opt.GoType == "string":
+			return goName + ` != ""`
+		case opt.GoType == "bool":
+			return goName
+		case opt.GoType == "int" || opt.GoType == "uint64" || opt.GoType == "float64" || opt.GoType == "float32" || opt.IsEnum:
+			return goName + " != 0"
+		default:
+			return goName + " != nil"
+		}
+	}
+	switch v := opt.DefaultValue.(type) {
+	case bool:
+		if v {
+			return "!" + goName
+		}
+		return goName
+	case int:
+		if opt.IsEnum && opt.EnumType != "" {
+			if v != 0 {
+				return fmt.Sprintf("%s != 0 && %s != %s(%d)", goName, goName, opt.EnumType, v)
+			}
+			return fmt.Sprintf("%s != %s(%d)", goName, opt.EnumType, v)
+		}
+		return fmt.Sprintf("%s != %d", goName, v)
+	case float64:
+		return fmt.Sprintf("%s != %g", goName, v)
+	case string:
+		return fmt.Sprintf("%s != %q", goName, v)
+	default:
+		return goName + " != 0"
+	}
+}
+
 // generateFunctionCallArgs formats the arguments for the C function call
 func generateFunctionCallArgs(op introspection.Operation, withOptions bool) string {
 	args := op.Arguments
-	if withOptions {
-		args = append(args, op.OptionalInputs...)
-	}
 	var callArgs []string
 
 	// Track which arrays we've processed to handle their lengths
@@ -580,7 +1005,7 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 		if arg.IsOutput {
 			// Handle output parameters (unchanged)
 			if arg.Name == "out" || op.HasOneImageOutput {
-				if arg.GoType == "*C.VipsImage" {
+				if arg.GoType == "vipsImageRef" {
 					argStr = "&out"
 				} else {
 					// Non-image output parameters should use c-prefixed variables
@@ -604,7 +1029,12 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 		} else {
 			// Handle IsInputN parameters specially - calculate from the referenced array
 			if arg.IsInputN && arg.NInputFrom != "" {
-				argStr = fmt.Sprintf("C.int(len(%s))", arg.NInputFrom)
+				if arg.CType == "size_t" {
+					argStr = fmt.Sprintf("uintptr(len(%s))", arg.NInputFrom)
+					callArgs = append(callArgs, argStr)
+					continue
+				}
+				argStr = fmt.Sprintf("int32(len(%s))", arg.NInputFrom)
 				callArgs = append(callArgs, argStr)
 				continue
 			}
@@ -614,9 +1044,9 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 				argStr = "c" + arg.GoName
 				callArgs = append(callArgs, argStr)
 			} else if arg.GoType == "bool" {
-				argStr = "C.int(boolToInt(" + arg.GoName + "))"
+				argStr = "int32(boolToInt(" + arg.GoName + "))"
 				callArgs = append(callArgs, argStr)
-			} else if arg.GoType == "*C.VipsImage" {
+			} else if arg.GoType == "vipsImageRef" {
 				argStr = arg.GoName
 				callArgs = append(callArgs, argStr)
 			} else if arg.GoType == "[]byte" && strings.Contains(arg.Name, "buf") {
@@ -629,7 +1059,7 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 				callArgs = append(callArgs, argStr)
 			} else if arg.Name == "len" && arg.CType == "size_t" {
 				// input buffer
-				argStr = "C.size_t(len(src))"
+				argStr = "uintptr(len(src))"
 				callArgs = append(callArgs, argStr)
 			} else if strings.HasPrefix(arg.GoType, "[]") {
 				// For array parameters, add both the array pointer and its length
@@ -641,7 +1071,7 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 				needsLengthParam := false
 				if !arg.IsRequired && (arg.GoType == "[]float64" || arg.GoType == "[]float32" ||
 					arg.GoType == "[]int" || arg.GoType == "[]BlendMode" ||
-					arg.GoType == "[]*C.VipsImage" || arg.GoType == "[]*Image") {
+					arg.GoType == "[]vipsImageRef" || arg.GoType == "[]*Image") {
 					needsLengthParam = true
 				}
 
@@ -657,8 +1087,8 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 					argStr = arrayVarName
 				} else {
 					// For basic functions without options, we may need type casting
-					if arg.GoType == "[]*C.VipsImage" {
-						argStr = "(**C.VipsImage)(" + arrayVarName + ")"
+					if arg.GoType == "[]vipsImageRef" {
+						argStr = arrayVarName
 					} else if arg.GoType == "[]int" || arg.GoType == "[]BlendMode" {
 						argStr = arrayVarName // No additional casting needed
 					} else if arg.GoType == "[]float64" || arg.GoType == "[]float32" {
@@ -676,7 +1106,7 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 					callArgs = append(callArgs, lengthArg)
 				}
 			} else if arg.IsEnum {
-				argStr = "C." + arg.Type + "(" + arg.GoName + ")"
+				argStr = "int32(" + arg.GoName + ")"
 				callArgs = append(callArgs, argStr)
 			} else if arg.CType == "void**" && arg.Name == "buf" {
 				// buffer output
@@ -688,27 +1118,36 @@ func generateFunctionCallArgs(op introspection.Operation, withOptions bool) stri
 				callArgs = append(callArgs, argStr)
 			} else {
 				// For regular scalar types, use normal C casting
-				argStr = "C." + arg.CType + "(" + arg.GoName + ")"
+				argStr = puregoScalarCast(arg)
 				callArgs = append(callArgs, argStr)
 			}
 		}
 	}
 
-	// Add supported optional output parameters for withOptions variant
 	if withOptions {
-		supportedOptionalOutputs := getSupportedOptionalOutputs(op)
-		for _, opt := range supportedOptionalOutputs {
-			var argStr string
-			if opt.GoType == "float64" || opt.GoType == "int" || opt.GoType == "bool" {
-				argStr = "c" + opt.GoName
-			} else {
-				argStr = "&" + opt.GoName
-			}
-			callArgs = append(callArgs, argStr)
-		}
+		callArgs = append(callArgs, "vargs...")
+	} else {
+		callArgs = append(callArgs, "uintptr(0)")
 	}
 
 	return strings.Join(callArgs, ", ")
+}
+
+func puregoScalarCast(arg introspection.Argument) string {
+	switch arg.GoType {
+	case "int":
+		return "int32(" + arg.GoName + ")"
+	case "uint64":
+		return "uint64(" + arg.GoName + ")"
+	case "float64":
+		return "float64(" + arg.GoName + ")"
+	case "float32":
+		return "float32(" + arg.GoName + ")"
+	}
+	if arg.CType == "size_t" {
+		return "uintptr(" + arg.GoName + ")"
+	}
+	return arg.GoName
 }
 
 // generateReturnValues formats the return values for the Go function
@@ -771,7 +1210,7 @@ func generateReturnValues(op introspection.Operation) string {
 	}
 }
 
-// generateFunctionCall formats the call to the underlying vipsgen function
+// generateFunctionCall formats the call to the underlying purevipsgen function
 func generateFunctionCall(op introspection.Operation) string {
 	var args []string
 	args = append(args, "r.image")
@@ -788,19 +1227,68 @@ func generateFunctionCall(op introspection.Operation) string {
 // generateImageMethodBody formats the body of an image method using improved argument detection
 func generateImageMethodBody(op introspection.Operation) string {
 	methodArgs := detectMethodArguments(op)
-	goFuncName := "vipsgen" + op.GoName
-	goFuncNameWithOptions := "vipsgen" + op.GoName + "WithOptions"
+	goFuncName := "purevipsgen" + op.GoName
+	goFuncNameWithOptions := "purevipsgen" + op.GoName + "WithOptions"
+
+	if op.Name == "webpsave_target" {
+		return `if options != nil {
+		buf, err := purevipsgenWebpsaveBufferWithOptions(r.image, options.Q, options.Lossless, options.Preset, options.SmartSubsample, options.NearLossless, options.AlphaQ, options.MinSize, options.Kmin, options.Kmax, options.Effort, options.TargetSize, options.Mixed, options.SmartDeblock, options.Passes, options.Keep, options.Background, options.PageHeight, options.Profile)
+		if err != nil {
+			return err
+		}
+		target.writeBytes(buf)
+		return nil
+	}
+	buf, err := purevipsgenWebpsaveBuffer(r.image)
+	if err != nil {
+		return err
+	}
+	target.writeBytes(buf)
+	return nil`
+	}
+	if op.Name == "pngsave_target" {
+		return `if options != nil {
+		buf, err := purevipsgenPngsaveBufferWithOptions(r.image, options.Compression, options.Interlace, options.Filter, options.Palette, options.Q, options.Dither, options.Bitdepth, options.Effort, options.Keep, options.Background, options.PageHeight, options.Profile)
+		if err != nil {
+			return err
+		}
+		target.writeBytes(buf)
+		return nil
+	}
+	buf, err := purevipsgenPngsaveBuffer(r.image)
+	if err != nil {
+		return err
+	}
+	target.writeBytes(buf)
+	return nil`
+	}
+	if op.Name == "jpegsave_target" {
+		return `if options != nil {
+		buf, err := purevipsgenJpegsaveBufferWithOptions(r.image, options.Q, options.OptimizeCoding, options.Interlace, options.TrellisQuant, options.OvershootDeringing, options.OptimizeScans, options.QuantTable, options.SubsampleMode, options.RestartInterval, options.Keep, options.Background, options.PageHeight, options.Profile)
+		if err != nil {
+			return err
+		}
+		target.writeBytes(buf)
+		return nil
+	}
+	buf, err := purevipsgenJpegsaveBuffer(r.image)
+	if err != nil {
+		return err
+	}
+	target.writeBytes(buf)
+	return nil`
+	}
 
 	// Format the arguments for the function call
 	var callArgs []string
 	callArgs = append(callArgs, "r.image") // The main input image
 
 	for _, arg := range methodArgs {
-		if arg.GoType == "*C.VipsImage" {
+		if arg.GoType == "vipsImageRef" {
 			callArgs = append(callArgs, fmt.Sprintf("%s.image", arg.GoName))
 		} else if arg.IsTarget {
 			callArgs = append(callArgs, fmt.Sprintf("%s.target", arg.GoName))
-		} else if arg.GoType == "[]*C.VipsImage" {
+		} else if arg.GoType == "[]vipsImageRef" {
 			callArgs = append(callArgs, fmt.Sprintf("convertImagesToVipsImages(%s)", arg.GoName))
 		} else {
 			callArgs = append(callArgs, arg.GoName)
@@ -820,10 +1308,10 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 			for _, opt := range op.OptionalInputs {
 				var optStr string
-				if opt.GoType == "*C.VipsImage" {
+				if opt.GoType == "vipsImageRef" {
 					// Handle nil image pointers safely by checking if the field is nil
 					optStr = fmt.Sprintf("getImagePointer(options.%s)", strings.Title(opt.GoName))
-				} else if opt.GoType == "[]*C.VipsImage" {
+				} else if opt.GoType == "[]vipsImageRef" {
 					optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 				} else {
 					optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -868,10 +1356,10 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 			for _, opt := range op.OptionalInputs {
 				var optStr string
-				if opt.GoType == "*C.VipsImage" {
+				if opt.GoType == "vipsImageRef" {
 					// Handle nil image pointers safely by checking if the field is nil
 					optStr = fmt.Sprintf("getImagePointer(options.%s)", strings.Title(opt.GoName))
-				} else if opt.GoType == "[]*C.VipsImage" {
+				} else if opt.GoType == "[]vipsImageRef" {
 					optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 				} else {
 					optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -912,9 +1400,9 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 				for _, opt := range op.OptionalInputs {
 					var optStr string
-					if opt.GoType == "*C.VipsImage" {
+					if opt.GoType == "vipsImageRef" {
 						optStr = fmt.Sprintf("options.%s.image", strings.Title(opt.GoName))
-					} else if opt.GoType == "[]*C.VipsImage" {
+					} else if opt.GoType == "[]vipsImageRef" {
 						optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 					} else {
 						optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -954,9 +1442,9 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 				for _, opt := range op.OptionalInputs {
 					var optStr string
-					if opt.GoType == "*C.VipsImage" {
+					if opt.GoType == "vipsImageRef" {
 						optStr = fmt.Sprintf("options.%s.image", strings.Title(opt.GoName))
-					} else if opt.GoType == "[]*C.VipsImage" {
+					} else if opt.GoType == "[]vipsImageRef" {
 						optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 					} else {
 						optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -1003,7 +1491,7 @@ func generateImageMethodBody(op introspection.Operation) string {
 				if arg.IsOutputN {
 					continue
 				}
-				if arg.GoType == "*C.VipsImage" || arg.GoType == "[]*C.VipsImage" {
+				if arg.GoType == "vipsImageRef" || arg.GoType == "[]vipsImageRef" {
 					errorValues = append(errorValues, "nil")
 				} else if strings.HasPrefix(arg.GoType, "[]") {
 					errorValues = append(errorValues, "nil")
@@ -1031,9 +1519,9 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 				for _, opt := range op.OptionalInputs {
 					var optStr string
-					if opt.GoType == "*C.VipsImage" {
+					if opt.GoType == "vipsImageRef" {
 						optStr = fmt.Sprintf("options.%s.image", strings.Title(opt.GoName))
-					} else if opt.GoType == "[]*C.VipsImage" {
+					} else if opt.GoType == "[]vipsImageRef" {
 						optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 					} else {
 						optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -1054,14 +1542,14 @@ func generateImageMethodBody(op introspection.Operation) string {
 					if arg.IsOutputN {
 						continue
 					}
-					if arg.GoType == "*C.VipsImage" {
-						// Convert *C.VipsImage to *Image
+					if arg.GoType == "vipsImageRef" {
+						// Convert vipsImageRef to *Image
 						optionsConversionCode.WriteString(fmt.Sprintf(`
 		%sImage := newImageRef(%s, r.format, nil)`,
 							arg.GoName, arg.GoName))
 						optionsResultVars[i] = arg.GoName + "Image"
-					} else if arg.GoType == "[]*C.VipsImage" {
-						// Convert []*C.VipsImage to []*Image
+					} else if arg.GoType == "[]vipsImageRef" {
+						// Convert []vipsImageRef to []*Image
 						optionsConversionCode.WriteString(fmt.Sprintf(`
 		%sImages := convertVipsImagesToImages(%s)`,
 							arg.GoName, arg.GoName))
@@ -1100,14 +1588,14 @@ func generateImageMethodBody(op introspection.Operation) string {
 				if arg.IsOutputN {
 					continue
 				}
-				if arg.GoType == "*C.VipsImage" {
-					// Convert *C.VipsImage to *Image
+				if arg.GoType == "vipsImageRef" {
+					// Convert vipsImageRef to *Image
 					conversionCode.WriteString(fmt.Sprintf(`
 	%sImage := newImageRef(%s, r.format, nil)`,
 						arg.GoName, arg.GoName))
 					resultVars[i] = arg.GoName + "Image"
-				} else if arg.GoType == "[]*C.VipsImage" {
-					// Convert []*C.VipsImage to []*Image
+				} else if arg.GoType == "[]vipsImageRef" {
+					// Convert []vipsImageRef to []*Image
 					conversionCode.WriteString(fmt.Sprintf(`
 	%sImages := convertVipsImagesToImages(%s)`,
 						arg.GoName, arg.GoName))
@@ -1169,9 +1657,9 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 				for _, opt := range op.OptionalInputs {
 					var optStr string
-					if opt.GoType == "*C.VipsImage" {
+					if opt.GoType == "vipsImageRef" {
 						optStr = fmt.Sprintf("options.%s.image", strings.Title(opt.GoName))
-					} else if opt.GoType == "[]*C.VipsImage" {
+					} else if opt.GoType == "[]vipsImageRef" {
 						optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 					} else {
 						optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -1224,9 +1712,9 @@ func generateImageMethodBody(op introspection.Operation) string {
 
 			for _, opt := range op.OptionalInputs {
 				var optStr string
-				if opt.GoType == "*C.VipsImage" {
+				if opt.GoType == "vipsImageRef" {
 					optStr = fmt.Sprintf("getImagePointer(options.%s)", strings.Title(opt.GoName))
-				} else if opt.GoType == "[]*C.VipsImage" {
+				} else if opt.GoType == "[]vipsImageRef" {
 					optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 				} else {
 					optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -1338,9 +1826,9 @@ func generateImageMethodParams(op introspection.Operation) string {
 		}
 		// Convert parameter types for image methods
 		var paramType string
-		if arg.GoType == "*C.VipsImage" {
+		if arg.GoType == "vipsImageRef" {
 			paramType = "*Image"
-		} else if arg.GoType == "[]*C.VipsImage" {
+		} else if arg.GoType == "[]vipsImageRef" {
 			paramType = "[]*Image"
 		} else if arg.CType == "void*" {
 			paramType = "[]byte"
@@ -1375,10 +1863,10 @@ func generateImageMethodReturnTypes(op introspection.Operation) string {
 			// Special handling for vector return types
 			if arg.Name == "vector" || arg.Name == "out_array" {
 				types = append(types, "[]float64")
-			} else if arg.GoType == "*C.VipsImage" {
+			} else if arg.GoType == "vipsImageRef" {
 				// Convert VipsImage output to *Image
 				types = append(types, "*Image")
-			} else if arg.GoType == "[]*C.VipsImage" {
+			} else if arg.GoType == "[]vipsImageRef" {
 				// Convert VipsImage array output to []*Image
 				types = append(types, "[]*Image")
 			} else {
@@ -1403,9 +1891,9 @@ func generateMethodParams(op introspection.Operation) string {
 			continue
 		}
 		var paramType string
-		if arg.GoType == "*C.VipsImage" {
+		if arg.GoType == "vipsImageRef" {
 			paramType = "*Image"
-		} else if arg.GoType == "[]*C.VipsImage" {
+		} else if arg.GoType == "[]vipsImageRef" {
 			paramType = "[]*Image"
 		} else if arg.IsSource {
 			paramType = "*Source"
@@ -1429,8 +1917,8 @@ func generateMethodParams(op introspection.Operation) string {
 func generateCreatorMethodBody(op introspection.Operation) string {
 	inputParams := op.RequiredInputs
 	var hasBufParam bool
-	goFuncName := "vipsgen" + op.GoName
-	goFuncNameWithOptions := "vipsgen" + op.GoName + "WithOptions"
+	goFuncName := "purevipsgen" + op.GoName
+	goFuncNameWithOptions := "purevipsgen" + op.GoName + "WithOptions"
 
 	var callArgs []string
 	for _, arg := range inputParams {
@@ -1438,9 +1926,9 @@ func generateCreatorMethodBody(op introspection.Operation) string {
 		if arg.IsInputN {
 			continue
 		}
-		if arg.GoType == "*C.VipsImage" {
+		if arg.GoType == "vipsImageRef" {
 			callArgs = append(callArgs, fmt.Sprintf("%s.image", arg.GoName))
-		} else if arg.GoType == "[]*C.VipsImage" {
+		} else if arg.GoType == "[]vipsImageRef" {
 			callArgs = append(callArgs, fmt.Sprintf("convertImagesToVipsImages(%s)", arg.GoName))
 		} else if arg.IsSource {
 			callArgs = append(callArgs, fmt.Sprintf("%s.src", arg.GoName))
@@ -1488,9 +1976,9 @@ func generateCreatorMethodBody(op introspection.Operation) string {
 
 		for _, opt := range op.OptionalInputs {
 			var optStr string
-			if opt.GoType == "*C.VipsImage" {
+			if opt.GoType == "vipsImageRef" {
 				optStr = fmt.Sprintf("options.%s.image", strings.Title(opt.GoName))
-			} else if opt.GoType == "[]*C.VipsImage" {
+			} else if opt.GoType == "[]vipsImageRef" {
 				optStr = fmt.Sprintf("convertImagesToVipsImages(options.%s)", strings.Title(opt.GoName))
 			} else {
 				optStr = fmt.Sprintf("options.%s", strings.Title(opt.GoName))
@@ -1535,7 +2023,7 @@ func generateCreatorMethodBody(op introspection.Operation) string {
 // generateCFunctionSignature generates just the function signature for vips operations
 func generateCFunctionSignature(op introspection.Operation, includeParamNames bool) string {
 	var result strings.Builder
-	result.WriteString(fmt.Sprintf("int vipsgen_%s(", op.Name))
+	result.WriteString(fmt.Sprintf("int purevipsgen_%s(", op.Name))
 	if len(op.Arguments) > 0 {
 		for i, arg := range op.Arguments {
 			if i > 0 {
@@ -1556,7 +2044,7 @@ func generateCFunctionSignature(op introspection.Operation, includeParamNames bo
 func generateCFunctionDeclaration(op introspection.Operation) string {
 	var result strings.Builder
 	if len(op.Arguments) == 0 {
-		result.WriteString(fmt.Sprintf("int vipsgen_%s();", op.Name))
+		result.WriteString(fmt.Sprintf("int purevipsgen_%s();", op.Name))
 	} else {
 		result.WriteString(generateCFunctionSignature(op, true))
 		result.WriteString(";")
@@ -1568,7 +2056,7 @@ func generateCFunctionDeclaration(op introspection.Operation) string {
 		result.WriteString("\n")
 
 		// Generate function declaration with array length parameters
-		result.WriteString(fmt.Sprintf("int vipsgen_%s_with_options(", op.Name))
+		result.WriteString(fmt.Sprintf("int purevipsgen_%s_with_options(", op.Name))
 
 		// Regular arguments
 		if len(op.Arguments) > 0 {
@@ -1592,7 +2080,7 @@ func generateCFunctionDeclaration(op introspection.Operation) string {
 				// Check if this array type needs a length parameter
 				if opt.GoType == "[]float64" || opt.GoType == "[]float32" ||
 					opt.GoType == "[]int" || opt.GoType == "[]BlendMode" ||
-					opt.GoType == "[]*C.VipsImage" || opt.GoType == "[]*Image" {
+					opt.GoType == "[]vipsImageRef" || opt.GoType == "[]*Image" {
 					result.WriteString(fmt.Sprintf(", int %s_n", opt.Name))
 				}
 			}
@@ -1617,7 +2105,7 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 
 	// Handle basic function (no options)
 	if len(op.Arguments) == 0 {
-		result.WriteString(fmt.Sprintf("int vipsgen_%s() {\n", op.Name))
+		result.WriteString(fmt.Sprintf("int purevipsgen_%s() {\n", op.Name))
 		result.WriteString(fmt.Sprintf("    return vips_%s(NULL);\n}", op.Name))
 	} else {
 		result.WriteString(generateCFunctionSignature(op, true))
@@ -1647,7 +2135,7 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 	if len(op.OptionalInputs) > 0 || len(supportedOptionalOutputs) > 0 {
 		result.WriteString("\n\n")
 		// Generate function signature with array length parameters for array arguments
-		result.WriteString(fmt.Sprintf("int vipsgen_%s_with_options(", op.Name))
+		result.WriteString(fmt.Sprintf("int purevipsgen_%s_with_options(", op.Name))
 
 		// Add regular arguments
 		if len(op.Arguments) > 0 {
@@ -1671,7 +2159,7 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 				// Check if this array type needs a length parameter
 				if opt.GoType == "[]float64" || opt.GoType == "[]float32" ||
 					opt.GoType == "[]int" || opt.GoType == "[]BlendMode" ||
-					opt.GoType == "[]*C.VipsImage" || opt.GoType == "[]*Image" {
+					opt.GoType == "[]vipsImageRef" || opt.GoType == "[]*Image" {
 					result.WriteString(fmt.Sprintf(", int %s_n", opt.Name))
 				}
 			}
@@ -1771,7 +2259,7 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 				// String parameter
 				allParamsList = append(allParamsList,
 					fmt.Sprintf("vips_object_set(VIPS_OBJECT(operation), \"%s\", %s, NULL)", arg.Name, arg.Name))
-			} else if arg.GoType == "*C.VipsImage" {
+			} else if arg.GoType == "vipsImageRef" {
 				// Image parameter
 				allParamsList = append(allParamsList,
 					fmt.Sprintf("vips_object_set(VIPS_OBJECT(operation), \"%s\", %s, NULL)", arg.Name, arg.Name))
@@ -1788,57 +2276,57 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 				arrayType := getArrayType(opt.GoType)
 				if arrayType == "double" {
 					allParamsList = append(allParamsList,
-						fmt.Sprintf("vipsgen_set_array_double(operation, \"%s\", %s_array)", opt.Name, opt.Name))
+						fmt.Sprintf("purevipsgen_set_array_double(operation, \"%s\", %s_array)", opt.Name, opt.Name))
 				} else if arrayType == "int" {
 					allParamsList = append(allParamsList,
-						fmt.Sprintf("vipsgen_set_array_int(operation, \"%s\", %s_array)", opt.Name, opt.Name))
+						fmt.Sprintf("purevipsgen_set_array_int(operation, \"%s\", %s_array)", opt.Name, opt.Name))
 				} else if arrayType == "image" {
 					allParamsList = append(allParamsList,
-						fmt.Sprintf("vipsgen_set_array_image(operation, \"%s\", %s_array)", opt.Name, opt.Name))
+						fmt.Sprintf("purevipsgen_set_array_image(operation, \"%s\", %s_array)", opt.Name, opt.Name))
 				}
 			} else if opt.GoType == "bool" {
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_bool(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_bool(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if opt.GoType == "string" {
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_string(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_string(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if opt.IsEnum {
 				if opt.Name == "keep" && opt.EnumType == "Keep" {
 					allParamsList = append(allParamsList,
-						fmt.Sprintf("vipsgen_set_keep(operation, %s)", opt.Name))
+						fmt.Sprintf("purevipsgen_set_keep(operation, %s)", opt.Name))
 				} else {
 					allParamsList = append(allParamsList,
-						fmt.Sprintf("vipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
+						fmt.Sprintf("purevipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
 				}
-			} else if opt.GoType == "*C.VipsImage" {
+			} else if opt.GoType == "vipsImageRef" {
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_image(operation, \"%s\", %s)", opt.Name, opt.Name))
-			} else if opt.GoType == "*Interpolate" || opt.GoType == "*C.VipsInterpolate" {
+					fmt.Sprintf("purevipsgen_set_image(operation, \"%s\", %s)", opt.Name, opt.Name))
+			} else if opt.GoType == "*Interpolate" || opt.GoType == "vipsInterpolateRef" {
 				// Handle interpolate parameters
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_interpolate(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_interpolate(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if opt.IsSource {
 				// Handle source parameters
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_source(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_source(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if opt.IsTarget {
 				// Handle target parameters
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_target(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_target(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if opt.GoType == "int" {
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if opt.GoType == "float64" {
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_double(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_double(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if strings.Contains(opt.CType, "guint64") {
 				// Handle guint64 parameters
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_guint64(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_guint64(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if strings.Contains(opt.CType, "unsigned int") || strings.Contains(opt.CType, "guint") {
 				// Handle unsigned int parameters
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
 			} else if strings.Contains(opt.CType, "*") || strings.Contains(opt.GoType, "*") {
 				// This is a pointer type - use general pointer handler
 				allParamsList = append(allParamsList,
@@ -1846,7 +2334,7 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 			} else {
 				// For any other non-pointer scalar types, default to int
 				allParamsList = append(allParamsList,
-					fmt.Sprintf("vipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
+					fmt.Sprintf("purevipsgen_set_int(operation, \"%s\", %s)", opt.Name, opt.Name))
 			}
 		}
 
@@ -1891,8 +2379,8 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 
 		// Generate the call to the helper function
 		if isBufferSaveOperation {
-			// For buffer save operations, use the vipsgen_operation_save_buffer helper
-			result.WriteString("    int result = vipsgen_operation_save_buffer(operation, buf, len);\n")
+			// For buffer save operations, use the purevipsgen_operation_save_buffer helper
+			result.WriteString("    int result = purevipsgen_operation_save_buffer(operation, buf, len);\n")
 		} else {
 			// Collect the output parameters
 			var outputParams []string
@@ -1917,7 +2405,7 @@ func generateCFunctionImplementation(op introspection.Operation) string {
 
 			// Add NULL terminator
 			outputParams = append(outputParams, "NULL")
-			result.WriteString(fmt.Sprintf("    int result = vipsgen_operation_execute(operation, %s);\n", strings.Join(outputParams, ", ")))
+			result.WriteString(fmt.Sprintf("    int result = purevipsgen_operation_execute(operation, %s);\n", strings.Join(outputParams, ", ")))
 		}
 
 		// Clean up array objects - handle BOTH required AND optional arrays
@@ -1966,9 +2454,9 @@ func generateOptionalInputsStruct(op introspection.Operation) string {
 		fieldName := strings.Title(opt.GoName)
 		var fieldType string
 		// Convert parameter types for struct
-		if opt.GoType == "*C.VipsImage" {
+		if opt.GoType == "vipsImageRef" {
 			fieldType = "*Image"
-		} else if opt.GoType == "[]*C.VipsImage" {
+		} else if opt.GoType == "[]vipsImageRef" {
 			fieldType = "[]*Image"
 		} else if opt.CType == "void*" {
 			fieldType = "[]byte"
@@ -2052,9 +2540,9 @@ func generateUtilFunctionCallArgs(op introspection.Operation) string {
 		if arg.IsInputN {
 			continue
 		}
-		if arg.GoType == "*C.VipsImage" {
+		if arg.GoType == "vipsImageRef" {
 			args = append(args, fmt.Sprintf("%s.image", arg.GoName))
-		} else if arg.GoType == "[]*C.VipsImage" {
+		} else if arg.GoType == "[]vipsImageRef" {
 			args = append(args, fmt.Sprintf("convertImagesToVipsImages(%s)", arg.GoName))
 		} else {
 			args = append(args, arg.GoName)

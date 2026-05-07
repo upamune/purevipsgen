@@ -10,28 +10,6 @@ import (
 	"unsafe"
 )
 
-// EnumTypeInfo holds information about a vips enum type
-type EnumTypeInfo struct {
-	CName       string // Original C name (e.g. VipsInterpretation)
-	GoName      string // Go name (e.g. Interpretation)
-	Description string
-	Values      []EnumValueInfo
-}
-
-// EnumValueInfo holds information about an enum value
-type EnumValueInfo struct {
-	CName       string // C name
-	GoName      string // Go name
-	Value       int    // Numeric value
-	Description string
-	GoValue     string // Override Go constant value (e.g. "-1"); empty means use C.CName
-}
-
-type enumTypeName struct {
-	CName  string
-	GoName string
-}
-
 // DiscoverEnumTypes retrieves all enum types from libvips
 func (v *Introspection) DiscoverEnumTypes() []EnumTypeInfo {
 	var enumTypes []EnumTypeInfo

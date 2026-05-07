@@ -10,17 +10,6 @@ import (
 	"unsafe"
 )
 
-// ImageTypeInfo represents information about an image type
-type ImageTypeInfo struct {
-	TypeName  string // Short name (e.g., "gif")
-	EnumName  string // Go enum name (e.g., "ImageTypeGIF")
-	EnumValue string // String value for the enum (e.g., "gif")
-	MimeType  string // MIME type (e.g., "image/gif")
-	Order     int    // Position in the enum
-	HasLoader bool
-	HasSaver  bool
-}
-
 // Well-known MIME types for image formats
 var knownMimeTypes = map[string]string{
 	"gif":       "image/gif",

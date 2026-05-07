@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"github.com/cshum/vipsgen/internal/introspection"
+	"github.com/upamune/purevipsgen/internal/introspection"
 	"strings"
 )
 
@@ -19,6 +19,8 @@ func formatDefaultValue(goType string) string {
 	case "string":
 		return "\"\""
 	case "error":
+		return "nil"
+	case "vipsImageRef", "vipsSourceRef", "vipsTargetRef", "vipsInterpolateRef", "vipsBlobRef", "unsafe.Pointer":
 		return "nil"
 	}
 

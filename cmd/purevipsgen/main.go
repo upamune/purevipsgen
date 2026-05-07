@@ -4,9 +4,9 @@ import (
 	"flag"
 	"log"
 
-	"github.com/cshum/vipsgen/internal/generator"
-	"github.com/cshum/vipsgen/internal/introspection"
-	"github.com/cshum/vipsgen/internal/templates"
+	"github.com/upamune/purevipsgen/internal/generator"
+	"github.com/upamune/purevipsgen/internal/introspection"
+	"github.com/upamune/purevipsgen/internal/templates"
 )
 
 func main() {
@@ -66,7 +66,7 @@ func main() {
 	// Extract image types from operations
 	imageTypes := vipsIntrospection.DiscoverImageTypes()
 
-	// Convert GIR data to vipsgen.Operation format
+	// Convert GIR data to purevipsgen.Operation format
 	operations := vipsIntrospection.DiscoverOperations()
 	log.Printf("Extracted %d operations from GObject Introspection\n", len(operations))
 

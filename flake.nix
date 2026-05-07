@@ -1,5 +1,5 @@
 {
-  description = "Development environment for vipsgen";
+  description = "Development environment for purevipsgen";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";

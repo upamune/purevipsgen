@@ -1,7 +1,7 @@
 package generator
 
 import (
-	"github.com/cshum/vipsgen/internal/introspection"
+	"github.com/upamune/purevipsgen/internal/introspection"
 )
 
 // TemplateData holds all data needed by any template
@@ -40,7 +40,7 @@ func applyEnumOverrides(enumTypes []introspection.EnumTypeInfo) {
 				if v.GoName == "KeepNone" {
 					// KeepNone is remapped to -1 in Go so that the zero value of a
 					// Keep field (0) means "not set" and is safe in empty structs.
-					// vipsgen_set_keep translates Go -1 back to C VIPS_FOREIGN_KEEP_NONE (0).
+					// purevipsgen_set_keep translates Go -1 back to C VIPS_FOREIGN_KEEP_NONE (0).
 					enumTypes[i].Values[j].GoValue = "-1"
 				}
 			}

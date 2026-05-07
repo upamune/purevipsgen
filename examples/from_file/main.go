@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/cshum/vipsgen/vips"
+	"github.com/upamune/purevipsgen/vips"
 )
 
 // downloadFile helper function to download file from url

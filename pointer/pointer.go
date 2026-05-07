@@ -1,8 +1,5 @@
 package pointer
 
-// #include <stdlib.h>
-import "C"
-
 import (
 	"sync"
 	"unsafe"
@@ -14,27 +11,24 @@ var (
 	mutex  sync.RWMutex
 	store  = map[unsafe.Pointer]interface{}{}
 	free   []unsafe.Pointer
-	blocks []unsafe.Pointer
+	blocks []uintptr
+	next   uintptr
 )
 
 func allocMem() {
-	mem := C.malloc(blockSize)
-	if mem == nil {
-		panic("can't allocate memory block for C pointers")
-	}
-	blocks = append(blocks, mem)
+	next++
+	block := next
+	blocks = append(blocks, block)
 	for i := 0; i < blockSize; i++ {
-		p := unsafe.Pointer(uintptr(mem) + uintptr(blockSize-1-i))
+		next++
+		p := unsafe.Pointer(next)
 		free = append(free, p)
 	}
 }
 
 func getPtr() unsafe.Pointer {
-	// Generate real fake C pointer.
-	// This pointer will not store any data, but will be used for indexing
-	// purposes. Since Go doesn't allow to cast dangling pointer to
-	// unsafe.Pointer, we do really allocate memory. Why we need indexing? Because
-	// Go doest allow C code to store pointers to Go data.
+	// Generate an opaque token that can cross the C boundary without pointing at
+	// Go memory. It is only used as a map key and must never be dereferenced.
 	if len(free) == 0 {
 		allocMem()
 	}
@@ -92,9 +86,7 @@ func Clear() {
 		delete(store, p)
 	}
 	free = nil
-	for _, p := range blocks {
-		C.free(p)
-	}
 	blocks = nil
+	next = 0
 	mutex.Unlock()
 }

@@ -1,11 +1,11 @@
 .PHONY: all build test clean generate install release lint check help
 
 # Project variables
-BINARY_NAME=vipsgen
+BINARY_NAME=purevipsgen
 BUILD_DIR=./bin
 TEMPLATE_DIR=./internal/templates
 OUTPUT_DIR=./vips
-CMD_DIR=./cmd/vipsgen
+CMD_DIR=./cmd/purevipsgen
 MAIN_GO=$(CMD_DIR)/main.go
 VERSION=$(shell git describe --tags --always --dirty 2>/dev/null || echo "v0.0.0")
 LDFLAGS=-ldflags "-X main.version=$(VERSION)"

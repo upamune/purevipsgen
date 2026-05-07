@@ -10,50 +10,6 @@ import (
 	"unsafe"
 )
 
-// Operation represents a libvips operation
-type Operation struct {
-	Name               string
-	GoName             string
-	Description        string
-	Arguments          []Argument
-	RequiredInputs     []Argument
-	OptionalInputs     []Argument
-	RequiredOutputs    []Argument
-	OptionalOutputs    []Argument
-	HasThisImageInput  bool
-	HasImageOutput     bool
-	HasOneImageOutput  bool
-	HasBufferInput     bool
-	HasBufferOutput    bool
-	HasArrayImageInput bool
-	ImageTypeString    string
-}
-
-// Argument represents an argument to a libvips operation
-type Argument struct {
-	Name         string
-	GoName       string
-	Type         string
-	GoType       string
-	CType        string
-	Description  string
-	IsRequired   bool
-	IsInput      bool
-	IsInputN     bool
-	IsOutput     bool
-	IsOutputN    bool
-	IsSource     bool
-	IsTarget     bool
-	IsImage      bool
-	IsBuffer     bool
-	IsArray      bool
-	Flags        int
-	IsEnum       bool
-	EnumType     string
-	NInputFrom   string
-	DefaultValue interface{}
-}
-
 // DiscoverOperations uses GObject introspection to discover all available operations
 func (v *Introspection) DiscoverOperations() []Operation {
 	var nOps C.int
@@ -490,24 +446,24 @@ func (v *Introspection) mapGTypeToTypes(gtype C.GType, typeName string, isOutput
 	if cTypeCheck(gtype, "VipsSource") {
 		// For VipsSource, we want to use VipsSourceCustom in the bindings
 		if isOutput {
-			return "VipsSourceCustom", "*C.VipsSourceCustom", "VipsSourceCustom**"
+			return "VipsSourceCustom", "vipsSourceRef", "VipsSourceCustom**"
 		}
-		return "VipsSourceCustom", "*C.VipsSourceCustom", "VipsSourceCustom*"
+		return "VipsSourceCustom", "vipsSourceRef", "VipsSourceCustom*"
 	}
 	// Special case for VipsTarget - map to VipsTargetCustom for proper compatibility
 	if cTypeCheck(gtype, "VipsTarget") {
 		// For VipsTarget, we want to use VipsTargetCustom in the bindings
 		if isOutput {
-			return "VipsTargetCustom", "*C.VipsTargetCustom", "VipsTargetCustom**"
+			return "VipsTargetCustom", "vipsTargetRef", "VipsTargetCustom**"
 		}
-		return "VipsTargetCustom", "*C.VipsTargetCustom", "VipsTargetCustom*"
+		return "VipsTargetCustom", "vipsTargetRef", "VipsTargetCustom*"
 	}
 	// Special case for VipsImage which has a different pointer pattern
 	if cTypeCheck(gtype, "VipsImage") {
 		if isOutput {
-			return "VipsImage", "*C.VipsImage", "VipsImage**"
+			return "VipsImage", "vipsImageRef", "VipsImage**"
 		}
-		return "VipsImage", "*C.VipsImage", "VipsImage*"
+		return "VipsImage", "vipsImageRef", "VipsImage*"
 	}
 
 	// Handle output array parameters (vector, out_array)
@@ -541,7 +497,7 @@ func (v *Introspection) mapGTypeToTypes(gtype C.GType, typeName string, isOutput
 	case cTypeCheck(gtype, "VipsArrayDouble"):
 		return "VipsArrayDouble", "[]float64", addOutputPointer("double*", isOutput)
 	case cTypeCheck(gtype, "VipsArrayImage"):
-		return "VipsArrayImage", "[]*C.VipsImage", "VipsImage**"
+		return "VipsArrayImage", "[]vipsImageRef", "VipsImage**"
 	}
 
 	// Check if this is an object type (not just VipsImage and VipsInterpolate)
@@ -552,9 +508,9 @@ func (v *Introspection) mapGTypeToTypes(gtype C.GType, typeName string, isOutput
 			actualTypeName := C.GoString(cTypeNamePtr)
 
 			if isOutput {
-				return actualTypeName, "*C." + actualTypeName, actualTypeName + "**"
+				return actualTypeName, "unsafe.Pointer", actualTypeName + "**"
 			}
-			return actualTypeName, "*C." + actualTypeName, actualTypeName + "*"
+			return actualTypeName, "unsafe.Pointer", actualTypeName + "*"
 		}
 	}
 

@@ -2,20 +2,20 @@
 
 ## Project Structure & Module Organization
 
-This Go module generates and publishes libvips bindings. The CLI entrypoint is `cmd/vipsgen/main.go`. Generator code lives in `internal/generator`, introspection helpers in `internal/introspection`, and embedded templates in `internal/templates`. Support utilities are in `pointer`. Generated binding packages are checked in under `vips`, `vips816`, and `vips817`. Usage examples are in `examples/*`.
+This Go module generates and publishes libvips bindings. The CLI entrypoint is `cmd/purevipsgen/main.go`. Generator code lives in `internal/generator`, introspection helpers in `internal/introspection`, and embedded templates in `internal/templates`. Support utilities are in `pointer`. Generated binding packages are checked in under `vips`, `vips816`, and `vips817`. Usage examples are in `examples/*`.
 
 ## Build, Test, and Development Commands
 
 Use `nix develop` or run `direnv allow` to enter the pinned shell. It provides Go, libvips, pkg-config, gobject-introspection, make, and golangci-lint. Without Nix, install `libvips`, `pkg-config`, and Go 1.24 or newer.
 
 - `make check`: verifies `pkg-config` can find libvips.
-- `make build`: builds `bin/vipsgen` with version metadata.
+- `make build`: builds `bin/purevipsgen` with version metadata.
 - `make test`: clears the Go test cache and runs package tests serially with coverage.
 - `make generate`: builds the CLI and regenerates the default `vips` package.
 - `make generate-custom`: regenerates using templates from `internal/templates`.
 - `make lint`: runs `golangci-lint run ./...` when the linter is installed.
 
-For direct iteration, use `CGO_CFLAGS_ALLOW=-Xpreprocessor go test ./...`.
+For direct iteration, use `CGO_CFLAGS_ALLOW=-Xpreprocessor go test ./...` when exercising the generator. Generated binding packages should also pass with `CGO_ENABLED=0 go test ./...`.
 
 ## Coding Style & Naming Conventions
 
@@ -23,7 +23,7 @@ Use standard Go formatting: run `gofmt` on changed `.go` files and keep imports 
 
 ## Testing Guidelines
 
-Tests use Go’s standard `testing` package plus `stretchr/testify`. Put tests beside the package under test with `_test.go` suffixes, as in `pointer/pointer_test.go` and `vips/image_test.go`. Because tests compile cgo bindings, confirm the installed libvips version matches the package under test when running version-specific directories.
+Tests use Go’s standard `testing` package plus `stretchr/testify`. Put tests beside the package under test with `_test.go` suffixes, as in `pointer/pointer_test.go` and `vips/image_test.go`. Because generated bindings dynamically load libvips through purego, confirm the installed libvips version matches the package under test when running version-specific directories.
 
 ## Commit & Pull Request Guidelines
 

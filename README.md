@@ -1,24 +1,27 @@
-# vipsgen
+# purevipsgen
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/cshum/vipsgen/vips.svg)](https://pkg.go.dev/github.com/cshum/vipsgen/vips)
-[![CI](https://github.com/cshum/vipsgen/actions/workflows/ci.yml/badge.svg)](https://github.com/cshum/vipsgen/actions/workflows/ci.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/upamune/purevipsgen/vips.svg)](https://pkg.go.dev/github.com/upamune/purevipsgen/vips)
+[![CI](https://github.com/upamune/purevipsgen/actions/workflows/ci.yml/badge.svg)](https://github.com/upamune/purevipsgen/actions/workflows/ci.yml)
 
-vipsgen is a Go binding generator for [libvips](https://github.com/libvips/libvips) - a fast and efficient image processing library.
+purevipsgen is a Go binding generator for [libvips](https://github.com/libvips/libvips) - a fast and efficient image processing library.
+
+purevipsgen is a fork of [github.com/cshum/vipsgen](https://github.com/cshum/vipsgen). The original project established the generator architecture, generated API shape, examples, and documentation foundation this repository builds on. We are grateful for that work.
 
 libvips is generally 4-8x [faster](https://github.com/libvips/libvips/wiki/Speed-and-memory-use) than ImageMagick with low memory usage, thanks to its [demand-driven, horizontally threaded](https://github.com/libvips/libvips/wiki/Why-is-libvips-quick) architecture.
 
 Existing Go libvips bindings rely on manually written code that is often incomplete, error-prone, and difficult to maintain as libvips evolves.
-vipsgen solves this by generating type-safe, robust, and fully documented Go bindings using GObject introspection.
+purevipsgen solves this by generating type-safe, documented Go bindings from GObject introspection and calling libvips dynamically through [`purego`](https://github.com/ebitengine/purego).
 
 - **Comprehensive**: Bindings for around [300 libvips operations](https://www.libvips.org/API/current/function-list.html)
 - **Type-Safe**: Proper Go types for all libvips C enums and structs
 - **Idiomatic**: Clean Go APIs that feel natural to use
-- **Streaming**: `VipsSource` and `VipsTarget` integration with Go `io.Reader` and `io.Writer` for [streaming](https://www.libvips.org/2019/11/29/True-streaming-for-libvips.html)
+- **No cgo for consumers**: generated packages use purego to load libvips at runtime
+- **Streaming**: `VipsSource` and `VipsTarget` integration with Go `io.Reader` and `io.Writer`
 
-You can use vipsgen in two ways:
+You can use purevipsgen in two ways:
 
-- **Import directly**: Use the pre-generated library `github.com/cshum/vipsgen/vips` for the latest default installation of libvips, or see [pre-generated packages](#pre-generated-packages)
-- **Generate custom bindings**: Run the vipsgen command to create bindings for your specific libvips version and installation
+- **Import directly**: Use the pre-generated library `github.com/upamune/purevipsgen/vips` for the latest default installation of libvips, or see [pre-generated packages](#pre-generated-packages)
+- **Generate custom bindings**: Run the purevipsgen command to create bindings for your specific libvips version and installation
 
 
 ## Quick Start
@@ -28,7 +31,7 @@ Use homebrew to install vips and pkg-config:
 brew install vips pkg-config
 ```
 
-On MacOS, vipsgen may not compile without first setting an environment variable:
+Code generation uses GObject introspection and may need cgo flags on macOS:
 
 ```bash
 export CGO_CFLAGS_ALLOW="-Xpreprocessor"
@@ -37,12 +40,12 @@ export CGO_CFLAGS_ALLOW="-Xpreprocessor"
 Use the package directly:
 
 ```bash
-go get -u github.com/cshum/vipsgen/vips
+go get -u github.com/upamune/purevipsgen/vips
 ```
 
-All operations support parameters and optional arguments through structs, maintaining direct equivalence with the [libvips API](https://www.libvips.org/API/current/). 
-Pass `nil` to use default behavior for optional arguments. 
-See [examples](https://github.com/cshum/vipsgen/tree/main/examples) for common usage patterns.
+Operations support parameters and optional arguments through structs, maintaining direct equivalence with the [libvips API](https://www.libvips.org/API/current/).
+Pass `nil` to use default behavior for optional arguments.
+See [examples](https://github.com/upamune/purevipsgen/tree/main/examples) for common usage patterns.
 
 
 ```go
@@ -52,7 +55,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/cshum/vipsgen/vips"
+	"github.com/upamune/purevipsgen/vips"
 )
 
 func main() {
@@ -108,13 +111,13 @@ func main() {
 
 ## Pre-generated Packages
 
-vipsgen provides pre-generated bindings for the following libvips versions. All packages use the same `vips` package name and API - only the import path differs.
+purevipsgen provides pre-generated bindings checked in under the paths below. All packages use the same `vips` package name and API - only the import path differs.
 
 | Import Path | libvips Version | Use When |
 |-------------|----------------|----------|
-| `github.com/cshum/vipsgen/vips` | 8.18.2 | Latest version (recommended) |
-| `github.com/cshum/vipsgen/vips817` | 8.17.3 | You have libvips 8.17.x installed |
-| `github.com/cshum/vipsgen/vips816` | 8.16.1 | You have libvips 8.16.x installed |
+| `github.com/upamune/purevipsgen/vips` | 8.17.0 | Default generated package for this checkout |
+| `github.com/upamune/purevipsgen/vips817` | 8.17.0 | Versioned import path for libvips 8.17.x |
+| `github.com/upamune/purevipsgen/vips816` | 8.17.0 | Compatibility import path; regenerate with libvips 8.16.x before publishing 8.16 bindings |
 
 **Important:** Only import ONE of these packages in your project. Choose based on your installed libvips version.
 
@@ -122,13 +125,13 @@ Check your libvips version with `vips --version`, then use the corresponding imp
 
 ```go
 // For libvips 8.18.x (latest - recommended)
-import "github.com/cshum/vipsgen/vips"
+import "github.com/upamune/purevipsgen/vips"
 
 // For libvips 8.17.x
-import "github.com/cshum/vipsgen/vips817"
+import "github.com/upamune/purevipsgen/vips817"
 
 // For libvips 8.16.x
-import "github.com/cshum/vipsgen/vips816"
+import "github.com/upamune/purevipsgen/vips816"
 
 func main() {
     // API is identical across all versions
@@ -145,9 +148,9 @@ func main() {
 
 ## Image Loaders
 
-**Generic loaders** — [`NewImageFromFile`](https://pkg.go.dev/github.com/cshum/vipsgen/vips#NewImageFromFile), [`NewImageFromBuffer`](https://pkg.go.dev/github.com/cshum/vipsgen/vips#NewImageFromBuffer), [`NewImageFromSource`](https://pkg.go.dev/github.com/cshum/vipsgen/vips#NewImageFromSource) — automatically detect the image format and accept `LoadOptions`, a generic options struct covering common options across formats. Since not every format supports every option, use the **format-specific loaders** — [`NewGifload`](https://pkg.go.dev/github.com/cshum/vipsgen/vips#NewGifload), [`NewJpegloadBuffer`](https://pkg.go.dev/github.com/cshum/vipsgen/vips#NewJpegloadBuffer), [`NewPngloadSource`](https://pkg.go.dev/github.com/cshum/vipsgen/vips#NewPngloadSource), etc. — for precise, type-safe control. A few common examples:
+**Generic loaders** — [`NewImageFromFile`](https://pkg.go.dev/github.com/upamune/purevipsgen/vips#NewImageFromFile), [`NewImageFromBuffer`](https://pkg.go.dev/github.com/upamune/purevipsgen/vips#NewImageFromBuffer), [`NewImageFromSource`](https://pkg.go.dev/github.com/upamune/purevipsgen/vips#NewImageFromSource) — automatically detect the image format and accept `LoadOptions`, a generic options struct covering common options across formats. Since not every format supports every option, use the **format-specific loaders** — [`NewGifload`](https://pkg.go.dev/github.com/upamune/purevipsgen/vips#NewGifload), [`NewJpegloadBuffer`](https://pkg.go.dev/github.com/upamune/purevipsgen/vips#NewJpegloadBuffer), [`NewPngloadSource`](https://pkg.go.dev/github.com/upamune/purevipsgen/vips#NewPngloadSource), etc. — for precise, type-safe control. A few common examples:
 
-**Animated GIF** — `N: -1` loads all frames ([full example](https://github.com/cshum/vipsgen/tree/main/examples/from_file)):
+**Animated GIF** — `N: -1` loads all frames ([full example](https://github.com/upamune/purevipsgen/tree/main/examples/from_file)):
 
 ```go
 image, err := vips.NewGifload("animation.gif", &vips.GifloadOptions{
@@ -168,7 +171,7 @@ image, err := vips.NewJpegloadSource(source, &vips.JpegloadSourceOptions{
 
 ## Working with Animated Images
 
-libvips represents multi-frame images (animated GIF, WebP) as a single vertically stacked image where each frame occupies one page of height `PageHeight`. vipsgen exposes the page metadata and provides dedicated helpers for operations that must process each frame individually.
+libvips represents multi-frame images (animated GIF, WebP) as a single vertically stacked image where each frame occupies one page of height `PageHeight`. purevipsgen exposes the page metadata and provides dedicated helpers for operations that must process each frame individually.
 
 ### Metadata
 
@@ -181,7 +184,7 @@ img.Loop()                  // loop count (0 = infinite)
 
 ### Multi-page Helpers
 
-Some operations — rotate, crop, embed — cannot be expressed as a single libvips pipeline call across a stacked image. vipsgen ships hand-written C helpers that loop over frames internally, so there is no per-frame CGo overhead from Go:
+Some operations — rotate, crop, embed — cannot be expressed as a single libvips pipeline call across a stacked image. purevipsgen provides helpers that apply the operation across frames while preserving the public Go API:
 
 ```go
 // Rotate all frames
@@ -204,13 +207,13 @@ These methods automatically fall through to the equivalent single-frame operatio
 Code generation requires libvips to be built with GObject introspection support.
 
 ```bash
-go install github.com/cshum/vipsgen/cmd/vipsgen@latest
+go install github.com/upamune/purevipsgen/cmd/purevipsgen@latest
 ```
 
 Generate the bindings:
 
 ```bash
-vipsgen -out ./vips
+purevipsgen -out ./vips
 ```
 
 Use your custom-generated code:
@@ -226,7 +229,7 @@ import (
 ### Command Line Options
 
 ```
-Usage of vipsgen:
+Usage of purevipsgen:
   -debug
         Enable debug json output
   -extract
@@ -243,118 +246,15 @@ Usage of vipsgen:
 
 ### How Code Generation Works
 
-The generation process involves multiple layers to provide a type-safe, idiomatic Go API:
+The generation process has three main layers:
 
-1. **Introspection Analysis**: vipsgen uses GObject introspection to analyze the libvips API, extracting operation metadata, argument types, and enum definitions.
+1. **Introspection analysis**: purevipsgen uses GObject introspection to analyze the installed libvips API, extracting operation metadata, argument types, enum definitions, and defaults.
 
-2. **Multi-Layer Generation**: To create type-safe, idiomatic Go APIs from libvips dynamic parameter system, vipsgen creates a layered approach that handles both required and optional parameters.
+2. **Purego binding layer**: generated `vips.go` functions register libvips symbols with purego and call them directly, converting Go scalars, strings, arrays, and opaque libvips pointers as needed.
 
-3. **Type-Safe Bindings**: The generated code is fully type-safe with proper Go types, structs, and enums based on centralized introspection data.
+3. **Go method layer**: generated `image.go` methods expose an idiomatic API on `*Image`, including option structs for libvips optional arguments.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Go Method Layer                          │
-│  • Methods on *Image struct                                 │
-│  • Go enums and structs                                     │  
-│  • Options structs for optional parameters                  │
-│  • Type conversions (Go <-> C)                              │
-└─────────────────────────────────────────────────────────────┘
-                               │
-┌─────────────────────────────────────────────────────────────┐
-│                   Go Binding Layer                          │
-│  • vipsgenAbc() - required parameters only                  │
-│  • vipsgenAbcWithOptions() - with optional parameters       │
-│  • C array handling and memory management                   │
-│  • String conversions and cleanup                           │
-│  • Error handling and resource management                   │
-└─────────────────────────────────────────────────────────────┘
-                               │
-┌─────────────────────────────────────────────────────────────┐
-│                     C Layer                                 │
-│  • vipsgen_abc() - required args only                       │
-│  • vipsgen_abc_with_options() - all parameters              │
-│  • VipsOperation dynamic dispatch                           │
-│  • Proper VipsArray creation and cleanup                    │
-└─────────────────────────────────────────────────────────────┘
-                               │
-┌─────────────────────────────────────────────────────────────┐
-│                    libvips                                  │
-│  • vips_abc() - original variadic functions                 │
-│  • VipsOperation object system                              │
-│  • GObject introspection metadata                           │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**1. C Layer (vips.c/vips.h)**
-
-**Problem**: libvips dynamic parameter system with variadic functions like `vips_resize(in, &out, scale, "kernel", kernel, ...)` does not translate well to type-safe, idiomatic Go APIs.
-
-**Solution**: Generate two types of C wrapper functions:
-
-```c
-// Basic function - required arguments only, calls vips_resize directly
-int vipsgen_resize(VipsImage* in, VipsImage** out, double scale) {
-    return vips_resize(in, out, scale, NULL);
-}
-
-// With options - uses VipsOperation for optional parameters  
-int vipsgen_resize_with_options(VipsImage* in, VipsImage** out, double scale, 
-                               VipsKernel kernel, double gap, double vscale) {
-    VipsOperation *operation = vips_operation_new("resize");
-    if (!operation) return 1;
-    if (
-        vips_object_set(VIPS_OBJECT(operation), "in", in, NULL) ||
-        vips_object_set(VIPS_OBJECT(operation), "scale", scale, NULL) ||
-        vipsgen_set_int(operation, "kernel", kernel) ||
-        vipsgen_set_double(operation, "gap", gap) ||
-        vipsgen_set_double(operation, "vscale", vscale)
-    ) {
-        g_object_unref(operation);
-        return 1;
-    }
-    int result = vipsgen_operation_execute(operation, "out", out, NULL);
-    return result;
-}
-```
-
-This layer handles VipsArray creation/cleanup, VipsOperation lifecycle management, type-specific setters.
-
-**2. Go Binding Layer (vips.go)**
-
-**Problem**: C arrays, string management, and complex type conversions.
-
-**Solution**: Generate Go wrapper functions that handle CGO complexity:
-
-```go
-// vipsgenResize vips_resize resize an image
-func vipsgenResize(in *C.VipsImage, scale float64) (*C.VipsImage, error) {
-    var out *C.VipsImage
-    if err := C.vipsgen_resize(in, &out, C.double(scale)); err != 0 {
-        return nil, handleImageError(out)
-    }
-    return out, nil
-}
-
-// vipsgenResizeWithOptions vips_resize resize an image with optional arguments
-func vipsgenResizeWithOptions(in *C.VipsImage, scale float64, kernel Kernel, 
-                             gap float64, vscale float64) (*C.VipsImage, error) {
-    var out *C.VipsImage
-    if err := C.vipsgen_resize_with_options(in, &out, C.double(scale), 
-                                           C.VipsKernel(kernel), C.double(gap), 
-                                           C.double(vscale)); err != 0 {
-        return nil, handleImageError(out)
-    }
-    return out, nil
-}
-```
-
-This layer handles C array conversion, string conversion with cleanup, memory management, error handling, and type conversion between Go and C.
-
-**3. Go Method Layer (image.go)**
-
-**Problem**: Provide idiomatic Go API with proper encapsulation.
-
-**Solution**: Generate methods on `*Image` struct that encapsulate the two-function approach with options pattern:
+For example, generated image methods select the required-argument call when options are nil and the option-aware call when an options struct is provided:
 
 ```go
 // ResizeOptions optional arguments for vips_resize
@@ -378,8 +278,7 @@ func DefaultResizeOptions() *ResizeOptions {
 // Resize vips_resize resize an image
 func (r *Image) Resize(scale float64, options *ResizeOptions) error {
     if options != nil {
-        // Use the WithOptions variant when options are provided
-        out, err := vipsgenResizeWithOptions(r.image, scale, 
+        out, err := purevipsgenResizeWithOptions(r.image, scale,
                                            options.Kernel, options.Gap, options.Vscale)
         if err != nil {
             return err
@@ -387,8 +286,7 @@ func (r *Image) Resize(scale float64, options *ResizeOptions) error {
         r.setImage(out)
         return nil
     }
-    // Use the basic variant for required parameters only
-    out, err := vipsgenResize(r.image, scale)
+    out, err := purevipsgenResize(r.image, scale)
     if err != nil {
         return err
     }
