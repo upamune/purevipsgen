@@ -28,7 +28,7 @@ build:
 test:
 	@echo "Running tests..."
 	@$(GO) clean -testcache
-	$(CGO_FLAGS) $(GO) test -v -coverprofile=profile.cov ./...
+	$(CGO_FLAGS) $(GO) test -p 1 -v -coverprofile=profile.cov ./...
 
 # Clean build artifacts
 clean:
